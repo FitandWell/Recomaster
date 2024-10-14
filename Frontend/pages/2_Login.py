@@ -1,27 +1,21 @@
 import streamlit as st
-import pyodbc
+import mysql.connector
 import hashlib
+import os
+from dotenv import load_dotenv
 
-# Function to connect to the SQL Server
+load_dotenv()
+
+# Function to connect to the MySQL database
 def init_db_connection():
-    connection = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=DESKTOP-OJD0AB2\SQLEXPRESS;'  
-        'DATABASE=RecoMaster;'
-        'Trusted_Connection=yes;'
+    connection = mysql.connector.connect(
+        host=os.getenv("DB_HOST"),  # Load host from .env
+        port=int(os.getenv("DB_PORT")),  # Load port from .env
+        user=os.getenv("DB_USER"),  # Load user from .env
+        password=os.getenv("DB_PASSWORD"),  # Load password from .env
+        database=os.getenv("DB_NAME"),  # Load database name from .env             
     )
     return connection
-
-# Function to connect to the SQL Server
-# def init_db_connection():
-#     connection = pyodbc.connect(
-#         'DRIVER={ODBC Driver 17 for SQL Server};'
-#         'SERVER=sqlserver;'  # Use the service name from docker-compose.yml
-#         'DATABASE=RecoMaster;'
-#         'UID=sa;'  # SQL Server admin user
-#         'PWD=admin@1234;'  # Password you defined for the SA user
-#     )
-#     return connection
 
 
 # Function to hash passwords
@@ -34,9 +28,10 @@ def login_user(username, password):
     cursor = conn.cursor()
     hashed_password = hash_password(password)
     cursor.execute('''
-        SELECT id FROM users WHERE username = ? AND password = ?
+        SELECT id FROM users WHERE username = %s AND password = %s
     ''', (username, hashed_password))
     data = cursor.fetchone()
+    cursor.close()
     conn.close()
     return data  # Return the fetched data (None if not found)
 
@@ -71,4 +66,3 @@ if not st.session_state.logged_in:
 else:
     st.write("You are already logged in!")
     st.write("You can now access the Meal Recommendation page.")
-

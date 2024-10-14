@@ -1,42 +1,36 @@
 import streamlit as st
-import pyodbc
+import mysql.connector
 import hashlib
+import os
+from dotenv import load_dotenv
 
-# # Function to connect to the SQL Server
+load_dotenv()
+
+# Function to connect to the MySQL database
 def init_db_connection():
-    connection = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=DESKTOP-OJD0AB2\SQLEXPRESS;'
-        'DATABASE=RecoMaster;'
-        'Trusted_Connection=yes;'
+    connection = mysql.connector.connect(
+        host=os.getenv("DB_HOST"),  # Load host from .env
+        port=int(os.getenv("DB_PORT")),  # Load port from .env
+        user=os.getenv("DB_USER"),  # Load user from .env
+        password=os.getenv("DB_PASSWORD"),  # Load password from .env
+        database=os.getenv("DB_NAME"),  # Load database name from .env     
     )
     return connection
-
-# Function to connect to the SQL Server
-# def init_db_connection():
-#     connection = pyodbc.connect(
-#         'DRIVER={ODBC Driver 17 for SQL Server};'
-#         'SERVER=sqlserver;'  # Use the service name from docker-compose.yml
-#         'DATABASE=RecoMaster;'
-#         'UID=sa;'  # SQL Server admin user
-#         'PWD=admin@1234;'  # Password you defined for the SA user
-#     )
-#     return connection
 
 # Function to create the table if it doesn't exist
 def create_table():
     conn = init_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='users' AND xtype='U')
-        CREATE TABLE users (
-            id INT IDENTITY(1,1) PRIMARY KEY,
-            username VARCHAR(255) NOT NULL,
-            email VARCHAR(255) NOT NULL,
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) NOT NULL UNIQUE,
+            email VARCHAR(255) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL
         )
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
 # Function to hash passwords
@@ -47,8 +41,9 @@ def hash_password(password):
 def user_exists(username):
     conn = init_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
     data = cursor.fetchone()
+    cursor.close()
     conn.close()
     return data is not None
 
@@ -59,9 +54,10 @@ def add_user(username, email, password):
     hashed_password = hash_password(password)
     cursor.execute('''
         INSERT INTO users (username, email, password) 
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     ''', (username, email, hashed_password))
     conn.commit()
+    cursor.close()
     conn.close()
 
 # Create the table if not exists
