@@ -1,67 +1,13 @@
+# signup.py (Streamlit Frontend)
+
 import streamlit as st
-import mysql.connector
-import hashlib
+import requests
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Function to connect to the MySQL database
-def init_db_connection():
-    connection = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),  # Load host from .env
-        port=int(os.getenv("DB_PORT")),  # Load port from .env
-        user=os.getenv("DB_USER"),  # Load user from .env
-        password=os.getenv("DB_PASSWORD"),  # Load password from .env
-        database=os.getenv("DB_NAME"),  # Load database name from .env     
-    )
-    return connection
-
-# Function to create the table if it doesn't exist
-def create_table():
-    conn = init_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) NOT NULL UNIQUE,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL
-        )
-    ''')
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# Function to hash passwords
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# Function to check if a user already exists
-def user_exists(username):
-    conn = init_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
-    data = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    return data is not None
-
-# Function to add a new user
-def add_user(username, email, password):
-    conn = init_db_connection()
-    cursor = conn.cursor()
-    hashed_password = hash_password(password)
-    cursor.execute('''
-        INSERT INTO users (username, email, password) 
-        VALUES (%s, %s, %s)
-    ''', (username, email, hashed_password))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# Create the table if not exists
-create_table()
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8080")  # Adjust if different
 
 # Streamlit UI for Sign Up
 st.title("Sign Up")
@@ -72,13 +18,23 @@ password = st.text_input("Enter your password", type="password")
 
 if st.button("Sign Up"):
     if username and email and password:
-        if not user_exists(username):
-            add_user(username, email, password)
-            st.success("Sign up successful! You can now log in.")
+        payload = {
+            "username": username,
+            "email": email,
+            "password": password
+        }
+        response = requests.post(f"{API_URL}/signup/", json=payload)
+        if response.status_code == 200:
+            token = response.json().get("access_token")
+            st.success("Sign up successful! You are now logged in.")
+            st.session_state['token'] = token
+            st.session_state['username'] = username
+            # Optionally redirect to another page or display more info
         else:
-            st.error("Username already exists.")
+            error = response.json().get("detail", "An error occurred.")
+            st.error(f"Sign up failed: {error}")
     else:
         st.error("Please fill in all fields.")
 
 # Link to the login page
-st.write("Already have an account? [Log In here](../Login)")
+st.write("Already have an account? [Log In here](login)")

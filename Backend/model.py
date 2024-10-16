@@ -4,6 +4,8 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
+from sqlalchemy import Column, Integer, String
+from database import Base
 
 
 def scaling(dataframe):
@@ -90,4 +92,10 @@ def output_recommended_recipes(dataframe):
         # print("No recommended recipes.")
         output=None
     
-
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(255), unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
