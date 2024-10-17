@@ -1,44 +1,13 @@
+# login.py (Streamlit Frontend)
+
 import streamlit as st
-import pyodbc
-import hashlib
+import requests
+import os
+from dotenv import load_dotenv
 
-# Function to connect to the SQL Server
-def init_db_connection():
-    connection = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=DESKTOP-OJD0AB2\SQLEXPRESS;'  
-        'DATABASE=RecoMaster;'
-        'Trusted_Connection=yes;'
-    )
-    return connection
+load_dotenv()
 
-# Function to connect to the SQL Server
-# def init_db_connection():
-#     connection = pyodbc.connect(
-#         'DRIVER={ODBC Driver 17 for SQL Server};'
-#         'SERVER=sqlserver;'  # Use the service name from docker-compose.yml
-#         'DATABASE=RecoMaster;'
-#         'UID=sa;'  # SQL Server admin user
-#         'PWD=admin@1234;'  # Password you defined for the SA user
-#     )
-#     return connection
-
-
-# Function to hash passwords
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# Function to validate user login and get user data
-def login_user(username, password):
-    conn = init_db_connection()
-    cursor = conn.cursor()
-    hashed_password = hash_password(password)
-    cursor.execute('''
-        SELECT id FROM users WHERE username = ? AND password = ?
-    ''', (username, hashed_password))
-    data = cursor.fetchone()
-    conn.close()
-    return data  # Return the fetched data (None if not found)
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8080")  # Adjust if different
 
 # Streamlit UI for Log In
 if 'logged_in' not in st.session_state:
@@ -52,23 +21,34 @@ if not st.session_state.logged_in:
 
     if st.button("Log In"):
         if username and password:
-            user_data = login_user(username, password)
-            if user_data:
-                st.session_state.logged_in = True
-                st.session_state['id'] = user_data[0]  # Store user ID in session state
+            payload = {
+                "username": username,
+                "password": password
+            }
+            response = requests.post(f"{API_URL}/login/", data=payload)
+            if response.status_code == 200:
+                token = response.json().get("access_token")
                 st.success(f"Welcome, {username}!")
+                st.session_state['logged_in'] = True
+                st.session_state['token'] = token
+                st.session_state['username'] = username
                 # Optionally redirect or reload the page
-                # st.experimental_rerun() 
             else:
-                st.error("Invalid username or password.")
+                error = response.json().get("detail", "An error occurred.")
+                st.error(f"Login failed: {error}")
         else:
             st.error("Please fill in all fields.")
 
     # Link to the sign-up page
-    st.write("Don't have an account? [Sign Up here](../Signup)")
-    st.write("[Forgot Password?](../ForgotPassword)")
+    st.write("Don't have an account? [Sign Up here](signup)")
+    st.write("[Forgot Password?](forgot_password)")
 
 else:
-    st.write("You are already logged in!")
+    st.write(f"Hello, {st.session_state['username']}! You are logged in.")
     st.write("You can now access the Meal Recommendation page.")
-
+    # Optionally add a logout button
+    if st.button("Log Out"):
+        st.session_state['logged_in'] = False
+        st.session_state['token'] = None
+        st.session_state['username'] = None
+        st.success("You have been logged out.")
