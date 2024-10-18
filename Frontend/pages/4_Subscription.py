@@ -4,7 +4,7 @@ import requests
 # Check if the user is logged in
 if 'logged_in' not in st.session_state or not st.session_state.logged_in:
     st.warning("You need to log in to subscribe. [Go to Login Page](../Login)")
-elif 'id' not in st.session_state:
+elif 'access_token' not in st.session_state:
     st.warning("User ID not found. Please log in again.")
 else:
     st.title("Subscription Plans")
@@ -31,7 +31,7 @@ else:
     if st.button("Proceed to Payment"):
         if email and contact:
             # Send the request to FastAPI to create a payment link
-            response = requests.post("http://127.0.0.1:8080/create_payment_link/", 
+            response = requests.post("http://127.0.0.1:8502/create_payment_link/", 
                                          json={"amount": selected_amount, "email": email, "contact": contact})
 
             # Check if payment link creation is successful
