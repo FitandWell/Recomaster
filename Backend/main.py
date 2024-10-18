@@ -1,5 +1,3 @@
-# main.py
-
 from fastapi import FastAPI, Query, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -42,15 +40,13 @@ skey = os.getenv("SECRETKEY")
 
 client = razorpay.Client(auth=(akey, skey))
 
-# OAuth2 setup
+# OAuth2 setup for login
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
-
-# Database model and schemas are initialized in their respective modules
 
 # Include signup and login routers
 app.include_router(signup_router)
@@ -61,8 +57,7 @@ app.include_router(login_router)
 dataset = pd.read_csv('../Data/food1.csv')
 dataset.info()
 
-# Pydantic Model
-
+# Pydantic Models
 class Params(BaseModel):
     n_neighbors: int = 5
     return_distance: bool = False
@@ -108,7 +103,6 @@ def get_db():
         db.close()
 
 # Utility functions for JWT
-
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=401,
@@ -122,8 +116,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    # Here you can fetch the user from DB if needed
-    # For simplicity, we assume the token is valid
     return username
 
 # Existing Endpoints
@@ -132,7 +124,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def home():
     return {"health_check": "OK"}
 
-@app.post("/predict/", response_model=PredictionOut)
+@app.post("/predict", response_model=PredictionOut)
 def update_item(prediction_input: PredictionIn, current_user: str = Depends(get_current_user)):
     """
     Endpoint to get recipe recommendations based on nutrition and ingredients.
@@ -199,4 +191,4 @@ def payment_success():
 # If running directly, include the following line to start the server
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8080)
+    uvicorn.run(app, host="127.0.0.1", port=8001)

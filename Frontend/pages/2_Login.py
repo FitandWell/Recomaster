@@ -1,44 +1,8 @@
 import streamlit as st
-import pyodbc
-import hashlib
+import requests
 
-# Function to connect to the SQL Server
-def init_db_connection():
-    connection = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=DESKTOP-OJD0AB2\SQLEXPRESS;'  
-        'DATABASE=RecoMaster;'
-        'Trusted_Connection=yes;'
-    )
-    return connection
-
-# Function to connect to the SQL Server
-# def init_db_connection():
-#     connection = pyodbc.connect(
-#         'DRIVER={ODBC Driver 17 for SQL Server};'
-#         'SERVER=sqlserver;'  # Use the service name from docker-compose.yml
-#         'DATABASE=RecoMaster;'
-#         'UID=sa;'  # SQL Server admin user
-#         'PWD=admin@1234;'  # Password you defined for the SA user
-#     )
-#     return connection
-
-
-# Function to hash passwords
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# Function to validate user login and get user data
-def login_user(username, password):
-    conn = init_db_connection()
-    cursor = conn.cursor()
-    hashed_password = hash_password(password)
-    cursor.execute('''
-        SELECT id FROM users WHERE username = ? AND password = ?
-    ''', (username, hashed_password))
-    data = cursor.fetchone()
-    conn.close()
-    return data  # Return the fetched data (None if not found)
+# URL of the FastAPI backend
+API_URL = "https://recommend-meal.osc-fr1.scalingo.io/login/"
 
 # Streamlit UI for Log In
 if 'logged_in' not in st.session_state:
@@ -52,13 +16,14 @@ if not st.session_state.logged_in:
 
     if st.button("Log In"):
         if username and password:
-            user_data = login_user(username, password)
-            if user_data:
+            # Send login request to FastAPI
+            response = requests.post(API_URL, data={'username': username, 'password': password})
+
+            if response.status_code == 200:
+                token_data = response.json()
                 st.session_state.logged_in = True
-                st.session_state['id'] = user_data[0]  # Store user ID in session state
+                st.session_state['access_token'] = token_data['access_token']  # Store access token
                 st.success(f"Welcome, {username}!")
-                # Optionally redirect or reload the page
-                # st.experimental_rerun() 
             else:
                 st.error("Invalid username or password.")
         else:
@@ -71,3 +36,9 @@ if not st.session_state.logged_in:
 else:
     st.write("You are already logged in!")
     st.write("You can now access the Meal Recommendation page.")
+
+    # Optional: Add a logout button
+    if st.button("Log Out"):
+        st.session_state.logged_in = False
+        del st.session_state['access_token']  # Remove the token on logout
+        st.success("You have been logged out.")
